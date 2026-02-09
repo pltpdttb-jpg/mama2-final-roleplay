@@ -2,15 +2,15 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MAMA Advisory Simulator (Pro)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <script src="[https://unpkg.com/vue@3/dist/vue.global.prod.js](https://unpkg.com/vue@3/dist/vue.global.prod.js)"></script>
+    <script src="[https://unpkg.com/@supabase/supabase-js@2](https://unpkg.com/@supabase/supabase-js@2)"></script>
+    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
+    <link href="[https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap](https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap)" rel="stylesheet">
     <style>
-        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; touch-action: manipulation; }
         .recording-pulse { animation: pulse-red 1.5s infinite; }
         @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
@@ -242,9 +242,12 @@
         const { createClient } = supabase
 
         // --- SETUP ---
-        const SUPABASE_URL = 'tjyiyzkfhspsetjzrpza';
+        // ✅ แก้ไขให้แล้ว: ใส่ URL เต็มรูปแบบ
+        const SUPABASE_URL = '[https://tjyiyzkfhspsetjzrpza.supabase.co](https://tjyiyzkfhspsetjzrpza.supabase.co)';
+        // (กรุณาใส่ Key และ API Key ของคุณกลับคืนตรงนี้)
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqeWl5emtmaHNwc2V0anpycHphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTA1MDksImV4cCI6MjA4NjIyNjUwOX0.gURwQD6FIg2huu6HWQxO4I2QQwkh-DrjYu2fuMIEigw';
-        const GEMINI_API_KEYS = ['AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs', 'AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs', 'AIzaSyDR276gb5fVkVTUp23rhHp5pM31ToRc4_U'];
+        const GEMINI_API_KEYS = ['AIzaSyDR276gb5fVkVTUp23rhHp5pM31ToRc4_U', 'AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs','AIzaSyD5wKkfrvnhe5-8kBsfAfeJNAwqojw0io8'];
+        
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
         createApp({
@@ -270,14 +273,17 @@
                     isLoading.value = true;
                     loadingMessage.value = 'กำลังเชื่อมต่อฐานข้อมูล...';
                     
-                    // Fetch Zones
-                    const { data: zones } = await _supabase.from('master_locations').select('*');
-                    if(zones) masterZones.value = zones;
+                    try {
+                        const { data: zones } = await _supabase.from('master_locations').select('*');
+                        if(zones) masterZones.value = zones;
 
-                    // Fetch Random Scenario
-                    await fetchRandomScenario();
-                    
-                    isLoading.value = false;
+                        await fetchRandomScenario();
+                    } catch (e) {
+                        console.error("Error loading data:", e);
+                        alert("ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบ Console");
+                    } finally {
+                        isLoading.value = false;
+                    }
                 });
 
                 const fetchRandomScenario = async () => {
@@ -306,6 +312,7 @@
                         audioChunks = [];
                         mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                         mediaRecorder.onstop = () => {
+                            // ใช้ mimeType ที่รองรับทั่วไป
                             const blob = new Blob(audioChunks, { type: 'audio/webm' });
                             if(turn === 1) audioBlob1.value = blob;
                             else audioBlob2.value = blob;
@@ -409,7 +416,13 @@
 
                         // 3. Call AI
                         const aiRes = await callGemini(payload);
-                        const feedback = JSON.parse(aiRes.candidates[0].content.parts[0].text);
+                        
+                        // ✅ แก้ไข: เพิ่มระบบทำความสะอาด JSON ก่อน Parse
+                        let rawText = aiRes.candidates[0].content.parts[0].text;
+                        // ลบ ```json และ ``` ออกถ้ามี
+                        rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+                        
+                        const feedback = JSON.parse(rawText);
 
                         // Adjust Score based on Quiz (Hard Logic)
                         if(form.value.quizAnswer !== currentScenario.value.correct_pyramid_stage) {
@@ -430,6 +443,7 @@
                         step.value = 6;
 
                     } catch (err) {
+                        console.error(err);
                         alert("เกิดข้อผิดพลาด: " + err.message);
                     } finally { isLoading.value = false; }
                 };
