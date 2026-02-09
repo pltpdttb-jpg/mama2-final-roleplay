@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAMA Advisory Simulator (Pro)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
+        .recording-pulse { animation: pulse-red 1.5s infinite; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+    </style>
+</head>
+<body id="app" class="text-slate-800 bg-gray-100">
+
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden relative min-h-[650px] flex flex-col">
+            
+            <div class="bg-gradient-to-r from-indigo-900 to-blue-800 p-6 text-white relative">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-wide">MAMA Simulator</h1>
+                        <p class="text-indigo-200 text-xs uppercase tracking-wider">Role-Play Assessment</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="bg-white/20 px-2 py-1 rounded text-xs">Step {{ step }}/6</span>
+                    </div>
+                </div>
+                <div class="mt-4 h-1.5 bg-indigo-900/50 rounded-full overflow-hidden">
+                    <div class="h-full bg-green-400 transition-all duration-500 ease-out" :style="{ width: (step / 6) * 100 + '%' }"></div>
+                </div>
+            </div>
+
+            <div class="p-6 flex-grow flex flex-col relative overflow-y-auto">
+                
+                <div v-if="isLoading" class="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+                    <p class="text-indigo-600 font-semibold animate-pulse text-center px-4">{{ loadingMessage }}</p>
+                </div>
+
+                <transition name="fade" mode="out-in">
+                    
+                    <div v-if="step === 1" key="step1" class="space-y-4">
+                        <h2 class="text-xl font-bold text-gray-800 border-l-4 border-indigo-500 pl-3">ลงทะเบียนผู้ใช้งาน</h2>
+                        <div class="space-y-3 pt-2">
+                            <input v-model="form.empId" type="tel" class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none transition" placeholder="รหัสพนักงาน (Numeric)">
+                            <input v-model="form.name" type="text" class="w-full border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none transition" placeholder="ชื่อ-นามสกุล">
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-500">Region</label>
+                                    <select v-model="form.region" class="w-full border rounded-lg p-3 bg-white focus:ring-2 focus:ring-indigo-500">
+                                        <option value="" disabled>เลือก...</option>
+                                        <option v-for="r in regionList" :value="r">{{ r }}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-500">Zone</label>
+                                    <select v-model="form.zone" :disabled="!form.region" class="w-full border rounded-lg p-3 bg-white disabled:bg-gray-100 focus:ring-2 focus:ring-indigo-500">
+                                        <option value="" disabled>เลือก...</option>
+                                        <option v-for="z in filteredZones" :value="z.zone_name">{{ z.zone_name }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <button @click="nextStep" :disabled="!isFormValid" class="w-full mt-4 bg-indigo-600 text-white py-3.5 rounded-xl font-bold shadow-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                            เริ่มภารกิจ <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+
+                    <div v-else-if="step === 2" key="step2" class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-xl font-bold text-gray-800">Mission: Fact Finding</h2>
+                        </div>
+                        
+                        <div v-if="currentScenario" class="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm relative">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center text-3xl shadow border">
+                                    {{ currentScenario.avatar_gender === 'male' ? '👨🏻‍💼' : '👩🏻‍💼' }}
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-lg text-gray-900">{{ currentScenario.name }} ({{ currentScenario.age }})</h3>
+                                    <p class="text-sm text-gray-500">{{ currentScenario.job }}</p>
+                                </div>
+                            </div>
+                            <div class="space-y-2 text-sm text-gray-700">
+                                <div class="flex justify-between border-b border-gray-200 pb-1">
+                                    <span class="text-gray-500">รายได้</span>
+                                    <span class="font-medium">{{ currentScenario.financial_status.income }}</span>
+                                </div>
+                                <div class="flex justify-between border-b border-gray-200 pb-1">
+                                    <span class="text-gray-500">เงินออม</span>
+                                    <span class="font-medium">{{ currentScenario.financial_status.savings }}</span>
+                                </div>
+                                <div class="flex justify-between border-b border-gray-200 pb-1">
+                                    <span class="text-gray-500">หนี้สิน</span>
+                                    <span class="font-medium text-red-600">{{ currentScenario.financial_status.debt }}</span>
+                                </div>
+                                <div class="flex justify-between border-b border-gray-200 pb-1">
+                                    <span class="text-gray-500">ความคุ้มครองเดิม</span>
+                                    <span class="font-medium">{{ currentScenario.financial_status.coverage }}</span>
+                                </div>
+                                <div class="mt-3 bg-red-50 p-3 rounded border border-red-100">
+                                    <p class="text-red-600 font-bold text-xs uppercase mb-1"><i class="fa-solid fa-heart-pulse"></i> Concerns</p>
+                                    <p class="italic text-gray-600 leading-relaxed">"{{ currentScenario.pain_point }}"</p>
+                                </div>
+                            </div>
+                        </div>
+                        <button @click="nextStep" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow hover:bg-indigo-700 transition-all">
+                            วิเคราะห์ข้อมูล <i class="fa-solid fa-magnifying-glass ml-2"></i>
+                        </button>
+                    </div>
+
+                    <div v-else-if="step === 3" key="step3" class="space-y-4">
+                        <h2 class="text-xl font-bold">Checkpoint: การวางแผน</h2>
+                        <p class="text-gray-600 text-sm">จากข้อมูลลูกค้า ควรเริ่มวางแผน Financial Pyramid ขั้นใด?</p>
+                        
+                        <div class="space-y-3 mt-4">
+                            <button v-for="opt in quizOptions" :key="opt.id" @click="form.quizAnswer = opt.id"
+                                :class="form.quizAnswer === opt.id ? 'bg-indigo-600 text-white ring-2 ring-indigo-300 transform scale-[1.02]' : 'bg-white text-gray-700 border hover:bg-gray-50'"
+                                class="w-full text-left p-4 rounded-xl transition-all shadow-sm flex justify-between items-center group">
+                                <div><span class="font-bold mr-2">{{ opt.id }}.</span> {{ opt.text }}</div>
+                                <i v-if="form.quizAnswer === opt.id" class="fa-solid fa-check-circle"></i>
+                            </button>
+                        </div>
+                        <button @click="nextStep" :disabled="!form.quizAnswer" class="w-full mt-4 bg-green-600 text-white py-3 rounded-xl font-bold disabled:opacity-50 transition-all">
+                            ยืนยัน & เริ่มนำเสนอ (Turn 1)
+                        </button>
+                    </div>
+
+                    <div v-else-if="step === 4" key="step4" class="flex flex-col h-full items-center">
+                        <div class="w-full text-left mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">Turn 1: The Proposal</h2>
+                            <p class="text-sm text-gray-500">พูดเปิดใจและนำเสนอไอเดียเพื่อปิด Gap (60 วินาที)</p>
+                        </div>
+                        
+                        <div class="bg-blue-50 w-full p-4 rounded-lg border border-blue-100 mb-6 text-sm text-blue-800">
+                            💡 <b>Hint:</b> เชื่อมโยงความกังวลเรื่อง "{{ currentScenario.pain_point }}" เข้ากับสินค้า
+                        </div>
+
+                        <div class="flex-grow flex flex-col items-center justify-center space-y-4 w-full">
+                            <button @mousedown="startRecording(1)" @mouseup="stopRecording(1)" @touchstart.prevent="startRecording(1)" @touchend.prevent="stopRecording(1)"
+                                :class="isRecording ? 'bg-red-500 recording-pulse scale-110' : 'bg-indigo-600 hover:bg-indigo-700'"
+                                class="w-24 h-24 rounded-full text-white shadow-2xl flex items-center justify-center transition-all select-none touch-none">
+                                <i class="fa-solid fa-microphone text-3xl"></i>
+                            </button>
+                            <p class="text-sm font-medium text-gray-500">{{ isRecording ? 'กำลังบันทึก Turn 1...' : 'กดค้างเพื่อพูด' }}</p>
+                        </div>
+
+                        <div v-if="audioBlob1" class="w-full bg-gray-100 rounded-lg p-3 flex items-center gap-3 mt-4">
+                            <span class="text-xs font-bold text-indigo-600">Turn 1:</span>
+                            <div class="h-1 bg-indigo-200 flex-grow rounded-full"><div class="h-full bg-indigo-600 w-full"></div></div>
+                            <button @click="resetAudio(1)" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+
+                        <button @click="goToTurn2" :disabled="!audioBlob1" class="w-full mt-6 bg-indigo-600 text-white py-3.5 rounded-xl font-bold disabled:opacity-50 transition-all">
+                            ส่งข้อเสนอ -> รอลูกค้าตอบกลับ
+                        </button>
+                    </div>
+
+                    <div v-else-if="step === 5" key="step5" class="flex flex-col h-full items-center">
+                        <div class="w-full text-left mb-2">
+                            <h2 class="text-xl font-bold text-gray-800">Turn 2: Objection Handling</h2>
+                            <div class="inline-block bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-bold mt-1 animate-pulse">
+                                <i class="fa-solid fa-circle-exclamation mr-1"></i> ลูกค้าแย้งกลับมา!
+                            </div>
+                        </div>
+
+                        <div class="bg-white border-2 border-red-100 rounded-2xl p-5 shadow-sm mb-6 w-full relative mt-2">
+                             <div class="absolute -top-3 left-4 bg-red-500 text-white px-2 py-0.5 text-xs rounded shadow">ลูกค้าพูด:</div>
+                             <p class="text-gray-800 text-lg font-medium leading-relaxed mt-2">"{{ currentScenario.objection_text }}"</p>
+                        </div>
+                        
+                        <div class="w-full mb-4 text-sm text-gray-500 text-center">
+                            ใช้เทคนิค <b>L.E.A.P.</b> และ <b>Feel-Felt-Found</b> ตอบกลับ
+                        </div>
+
+                        <div class="flex-grow flex flex-col items-center justify-center space-y-4 w-full">
+                            <button @mousedown="startRecording(2)" @mouseup="stopRecording(2)" @touchstart.prevent="startRecording(2)" @touchend.prevent="stopRecording(2)"
+                                :class="isRecording ? 'bg-red-500 recording-pulse scale-110' : 'bg-purple-600 hover:bg-purple-700'"
+                                class="w-24 h-24 rounded-full text-white shadow-2xl flex items-center justify-center transition-all select-none touch-none">
+                                <i class="fa-solid fa-microphone-lines text-3xl"></i>
+                            </button>
+                            <p class="text-sm font-medium text-gray-500">{{ isRecording ? 'กำลังบันทึก Turn 2...' : 'กดค้างเพื่อตอบข้อโต้แย้ง' }}</p>
+                        </div>
+
+                        <div v-if="audioBlob2" class="w-full bg-gray-100 rounded-lg p-3 flex items-center gap-3 mt-4">
+                            <span class="text-xs font-bold text-purple-600">Turn 2:</span>
+                            <div class="h-1 bg-purple-200 flex-grow rounded-full"><div class="h-full bg-purple-600 w-full"></div></div>
+                            <button @click="resetAudio(2)" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+
+                        <button @click="submitSimulation" :disabled="!audioBlob2" class="w-full mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 rounded-xl font-bold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all">
+                            ส่งผลการประเมิน (Final Submit)
+                        </button>
+                    </div>
+
+                    <div v-else-if="step === 6" key="step6" class="space-y-5 text-center">
+                        <h2 class="text-2xl font-bold text-gray-800">ผลการประเมิน Advisor</h2>
+                        
+                        <div class="relative w-40 h-40 mx-auto">
+                            <svg class="w-full h-full transform -rotate-90">
+                                <circle cx="80" cy="80" r="70" stroke="#e5e7eb" stroke-width="10" fill="transparent"/>
+                                <circle cx="80" cy="80" r="70" :stroke="scoreColor" stroke-width="10" fill="transparent" :stroke-dasharray="circumference" :stroke-dashoffset="dashOffset" class="transition-all duration-1000"/>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-4xl font-bold text-gray-800">{{ result.score }}</span>
+                                <span class="text-xs text-gray-500 uppercase font-bold">Total Score</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-3 text-left">
+                            <div class="bg-green-50 p-4 rounded-xl border-l-4 border-green-500">
+                                <h4 class="font-bold text-green-800 text-sm mb-1">จุดแข็ง (Strength)</h4>
+                                <p class="text-sm text-green-700 leading-snug">{{ result.feedback.strength }}</p>
+                            </div>
+                            <div class="bg-amber-50 p-4 rounded-xl border-l-4 border-amber-500">
+                                <h4 class="font-bold text-amber-800 text-sm mb-1">สิ่งที่ต้องพัฒนา (Improvement)</h4>
+                                <p class="text-sm text-amber-800 leading-snug">{{ result.feedback.weakness }}</p>
+                            </div>
+                        </div>
+
+                        <button @click="resetApp" class="w-full border-2 border-gray-200 text-gray-600 py-3 rounded-xl font-bold hover:bg-gray-50 transition-all">
+                            <i class="fa-solid fa-rotate-right mr-1"></i> เริ่มเคสใหม่ (New Case)
+                        </button>
+                    </div>
+                </transition>
+            </div>
+        </div>
+        <p class="mt-4 text-xs text-gray-400">Powered by Gemini 1.5 & Supabase</p>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue
+        const { createClient } = supabase
+
+        // --- SETUP ---
+        const SUPABASE_URL = 'tjyiyzkfhspsetjzrpza';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqeWl5emtmaHNwc2V0anpycHphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTA1MDksImV4cCI6MjA4NjIyNjUwOX0.gURwQD6FIg2huu6HWQxO4I2QQwkh-DrjYu2fuMIEigw';
+        const GEMINI_API_KEYS = ['YOUR_GEMINI_KEY_1', 'YOUR_GEMINI_KEY_2'];
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        createApp({
+            setup() {
+                const step = ref(1);
+                const isLoading = ref(false);
+                const loadingMessage = ref('');
+                
+                // Data
+                const form = ref({ empId: '', name: '', region: '', zone: '', quizAnswer: '' });
+                const masterZones = ref([]);
+                const currentScenario = ref(null);
+                
+                // Audio State
+                const isRecording = ref(false);
+                const audioBlob1 = ref(null);
+                const audioBlob2 = ref(null);
+                let mediaRecorder = null;
+                let audioChunks = [];
+
+                // --- 1. INITIAL LOAD (Dynamic Data) ---
+                onMounted(async () => {
+                    isLoading.value = true;
+                    loadingMessage.value = 'กำลังเชื่อมต่อฐานข้อมูล...';
+                    
+                    // Fetch Zones
+                    const { data: zones } = await _supabase.from('master_locations').select('*');
+                    if(zones) masterZones.value = zones;
+
+                    // Fetch Random Scenario
+                    await fetchRandomScenario();
+                    
+                    isLoading.value = false;
+                });
+
+                const fetchRandomScenario = async () => {
+                    const { data: scenarios } = await _supabase.from('mama_scenarios').select('*');
+                    if (scenarios && scenarios.length > 0) {
+                        currentScenario.value = scenarios[Math.floor(Math.random() * scenarios.length)];
+                    }
+                };
+
+                // --- 2. FORM LOGIC ---
+                const regionList = computed(() => [...new Set(masterZones.value.map(i => i.region))].sort());
+                const filteredZones = computed(() => masterZones.value.filter(z => z.region === form.value.region));
+                const isFormValid = computed(() => form.value.empId && form.value.name && form.value.region && form.value.zone);
+                const quizOptions = [
+                    { id: 'A', text: 'Creation (เน้นสภาพคล่อง)' },
+                    { id: 'B', text: 'Protection (เน้นความคุ้มครอง)' },
+                    { id: 'C', text: 'Accumulation (เน้นลงทุน)' },
+                    { id: 'D', text: 'Transfer (เน้นมรดก)' }
+                ];
+
+                // --- 3. AUDIO LOGIC (Turn 1 & 2) ---
+                const startRecording = async (turn) => {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        mediaRecorder = new MediaRecorder(stream);
+                        audioChunks = [];
+                        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                        mediaRecorder.onstop = () => {
+                            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                            if(turn === 1) audioBlob1.value = blob;
+                            else audioBlob2.value = blob;
+                        };
+                        mediaRecorder.start();
+                        isRecording.value = true;
+                    } catch (err) { alert('กรุณาอนุญาตไมโครโฟน'); }
+                };
+
+                const stopRecording = (turn) => {
+                    if (mediaRecorder && isRecording.value) {
+                        mediaRecorder.stop();
+                        isRecording.value = false;
+                    }
+                };
+
+                const resetAudio = (turn) => {
+                    if(turn === 1) audioBlob1.value = null;
+                    else audioBlob2.value = null;
+                };
+
+                // --- 4. SUBMIT & AI EVALUATION ---
+                const result = ref({ score: 0, feedback: {} });
+                
+                // AI Helper
+                const blobToBase64 = (blob) => new Promise((resolve) => { 
+                    const r = new FileReader(); 
+                    r.onloadend = () => resolve(r.result.split(',')[1]); 
+                    r.readAsDataURL(blob); 
+                });
+
+                let currentKeyIndex = 0;
+                const callGemini = async (payload, attempt=0) => {
+                    if(attempt >= GEMINI_API_KEYS.length) throw new Error("API Keys Busy");
+                    const key = GEMINI_API_KEYS[currentKeyIndex];
+                    try {
+                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+                        });
+                        if(res.status === 429) {
+                            currentKeyIndex = (currentKeyIndex + 1) % GEMINI_API_KEYS.length;
+                            return callGemini(payload, attempt+1);
+                        }
+                        return await res.json();
+                    } catch(e) { return callGemini(payload, attempt+1); }
+                };
+
+                const submitSimulation = async () => {
+                    isLoading.value = true;
+                    loadingMessage.value = 'AI กำลังวิเคราะห์เสียงทั้ง 2 รอบ...';
+
+                    try {
+                        // 1. Upload Both Audios
+                        const ts = Date.now();
+                        const f1 = `${ts}_${form.value.empId}_turn1.webm`;
+                        const f2 = `${ts}_${form.value.empId}_turn2.webm`;
+                        
+                        const p1 = _supabase.storage.from('mama-audio').upload(f1, audioBlob1.value);
+                        const p2 = _supabase.storage.from('mama-audio').upload(f2, audioBlob2.value);
+                        await Promise.all([p1, p2]);
+                        
+                        const url1 = _supabase.storage.from('mama-audio').getPublicUrl(f1).data.publicUrl;
+                        const url2 = _supabase.storage.from('mama-audio').getPublicUrl(f2).data.publicUrl;
+
+                        // 2. Prepare AI Prompt
+                        const b64_1 = await blobToBase64(audioBlob1.value);
+                        const b64_2 = await blobToBase64(audioBlob2.value);
+
+                        const systemPrompt = `
+                            Role: Expert Bank Sales Trainer.
+                            Context: Evaluating an advisor in a role-play simulation.
+                            Scenario: Client "${currentScenario.value.name}" (Pain Point: ${currentScenario.value.pain_point}).
+                            Correct Pyramid Stage: ${currentScenario.value.correct_pyramid_stage}. User Selected: ${form.value.quizAnswer}.
+                            Turn 2 Objection: "${currentScenario.value.objection_text}".
+
+                            Task: Analyze 2 audio inputs.
+                            Audio 1 (Proposal): Did they address the pain point? Did they propose the right solution based on Pyramid?
+                            Audio 2 (Objection): Did they handle the specific objection using L.E.A.P (Listen, Empathize, Analyze, Proceed)? Did they sound professional?
+
+                            Output JSON ONLY:
+                            {
+                                "score": (0-100),
+                                "analysis_score": (0-40 based on Pyramid & Proposal),
+                                "comm_score": (0-60 based on Empathy & Objection Handling),
+                                "strength": "Short Thai feedback on what was good",
+                                "weakness": "Short Thai feedback on what to improve"
+                            }
+                        `;
+
+                        const payload = {
+                            contents: [
+                                { role: "user", parts: [
+                                    { text: systemPrompt },
+                                    { inline_data: { mime_type: "audio/webm", data: b64_1 } }, // Turn 1
+                                    { text: "This is Turn 2 Audio:" },
+                                    { inline_data: { mime_type: "audio/webm", data: b64_2 } }  // Turn 2
+                                ]}
+                            ],
+                            generation_config: { response_mime_type: "application/json" }
+                        };
+
+                        // 3. Call AI
+                        const aiRes = await callGemini(payload);
+                        const feedback = JSON.parse(aiRes.candidates[0].content.parts[0].text);
+
+                        // Adjust Score based on Quiz (Hard Logic)
+                        if(form.value.quizAnswer !== currentScenario.value.correct_pyramid_stage) {
+                            feedback.score = Math.max(0, feedback.score - 10);
+                            feedback.weakness += ` (เลือกพีระมิดผิด ควรเป็น ${currentScenario.value.correct_pyramid_stage})`;
+                        }
+
+                        result.value = { score: feedback.score, feedback };
+
+                        // 4. Save to DB
+                        await _supabase.from('mama_sessions').insert({
+                            employee_id: form.value.empId, full_name: form.value.name, region: form.value.region, zone: form.value.zone,
+                            scenario_id: currentScenario.value.id, user_pyramid_choice: form.value.quizAnswer,
+                            audio_url_turn1: url1, audio_url_turn2: url2,
+                            ai_total_score: feedback.score, ai_feedback: feedback, used_api_key_index: currentKeyIndex
+                        });
+
+                        step.value = 6;
+
+                    } catch (err) {
+                        alert("เกิดข้อผิดพลาด: " + err.message);
+                    } finally { isLoading.value = false; }
+                };
+
+                const goToTurn2 = () => {
+                    // Simulate loading state for realism
+                    isLoading.value = true;
+                    loadingMessage.value = 'ลูกค้ากำลังพิจารณาข้อเสนอ...';
+                    setTimeout(() => {
+                        isLoading.value = false;
+                        step.value = 5;
+                    }, 1500);
+                };
+
+                const nextStep = () => step.value++;
+                const resetApp = async () => {
+                    step.value = 1;
+                    form.value = { empId: '', name: '', region: '', zone: '', quizAnswer: '' };
+                    audioBlob1.value = null; audioBlob2.value = null;
+                    await fetchRandomScenario();
+                };
+
+                // Chart Helpers
+                const circumference = 2 * Math.PI * 70;
+                const dashOffset = computed(() => circumference - (result.value.score / 100) * circumference);
+                const scoreColor = computed(() => result.value.score >= 80 ? '#10b981' : result.value.score >= 50 ? '#f59e0b' : '#ef4444');
+
+                return {
+                    step, form, regionList, filteredZones, isFormValid, quizOptions,
+                    currentScenario,
+                    isRecording, startRecording, stopRecording, resetAudio, audioBlob1, audioBlob2,
+                    submitSimulation, goToTurn2, isLoading, loadingMessage,
+                    result, circumference, dashOffset, scoreColor,
+                    nextStep, resetApp
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
