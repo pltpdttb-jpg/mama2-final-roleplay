@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MAMA Advisory Simulator (Pro)</title>
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
-    <script src="[https://unpkg.com/vue@3/dist/vue.global.prod.js](https://unpkg.com/vue@3/dist/vue.global.prod.js)"></script>
-    <script src="[https://unpkg.com/@supabase/supabase-js@2](https://unpkg.com/@supabase/supabase-js@2)"></script>
-    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
-    <link href="[https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap](https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap)" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; touch-action: manipulation; }
         .recording-pulse { animation: pulse-red 1.5s infinite; }
@@ -242,11 +242,18 @@
         const { createClient } = supabase
 
         // --- SETUP ---
-        // ✅ แก้ไขให้แล้ว: ใส่ URL เต็มรูปแบบ
-        const SUPABASE_URL = '[https://tjyiyzkfhspsetjzrpza.supabase.co](https://tjyiyzkfhspsetjzrpza.supabase.co)';
-        // (กรุณาใส่ Key และ API Key ของคุณกลับคืนตรงนี้)
+        // ✅ 1. แก้ไข URL ให้ถูกต้อง (มี https:// และ .supabase.co)
+        const SUPABASE_URL = 'https://tjyiyzkfhspsetjzrpza.supabase.co';
+        
+        // ✅ 2. ใส่ Key ของคุณ (ใช้ฟันหนู ' ขีดเดียว ไม่ใช่ขีดโค้ง)
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqeWl5emtmaHNwc2V0anpycHphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTA1MDksImV4cCI6MjA4NjIyNjUwOX0.gURwQD6FIg2huu6HWQxO4I2QQwkh-DrjYu2fuMIEigw';
-        const GEMINI_API_KEYS = ['AIzaSyDR276gb5fVkVTUp23rhHp5pM31ToRc4_U', 'AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs','AIzaSyD5wKkfrvnhe5-8kBsfAfeJNAwqojw0io8'];
+        
+        // ✅ 3. แก้ Format Array ของ Gemini Key (มีลูกน้ำคั่น)
+        const GEMINI_API_KEYS = [
+            'AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs', 
+            'AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs', 
+            'AIzaSyDR276gb5fVkVTUp23rhHp5pM31ToRc4_U'
+        ];
         
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -312,7 +319,6 @@
                         audioChunks = [];
                         mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                         mediaRecorder.onstop = () => {
-                            // ใช้ mimeType ที่รองรับทั่วไป
                             const blob = new Blob(audioChunks, { type: 'audio/webm' });
                             if(turn === 1) audioBlob1.value = blob;
                             else audioBlob2.value = blob;
@@ -417,9 +423,8 @@
                         // 3. Call AI
                         const aiRes = await callGemini(payload);
                         
-                        // ✅ แก้ไข: เพิ่มระบบทำความสะอาด JSON ก่อน Parse
+                        // ✅ Clean up JSON before parsing (Prevent AI Markdown Error)
                         let rawText = aiRes.candidates[0].content.parts[0].text;
-                        // ลบ ```json และ ``` ออกถ้ามี
                         rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
                         
                         const feedback = JSON.parse(rawText);
@@ -449,7 +454,6 @@
                 };
 
                 const goToTurn2 = () => {
-                    // Simulate loading state for realism
                     isLoading.value = true;
                     loadingMessage.value = 'ลูกค้ากำลังพิจารณาข้อเสนอ...';
                     setTimeout(() => {
