@@ -18,209 +18,232 @@
         .pyramid-selected { transform: scale(1.03); filter: brightness(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10; border: 2px solid white; }
         .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
         .fade-enter-from, .fade-leave-to { opacity: 0; }
+        /* Tab Styles */
+        .tab-btn { flex: 1; padding: 10px; text-align: center; cursor: pointer; font-weight: bold; color: #6b7280; border-bottom: 2px solid #e5e7eb; }
+        .tab-active { color: #4f46e5; border-bottom: 2px solid #4f46e5; }
     </style>
 </head>
 <body id="app" class="text-slate-800 bg-gray-100">
 
     <div class="min-h-screen flex flex-col items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden relative min-h-[700px] flex flex-col">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden relative min-h-[750px] flex flex-col">
             
-            <div class="bg-gradient-to-r from-blue-900 to-indigo-800 p-5 text-white">
-                <div class="flex justify-between items-center">
-                    <h1 class="font-bold text-lg"><i class="fa-solid fa-robot mr-2"></i>MAMA Simulator</h1>
-                    <span class="text-xs bg-white/20 px-2 py-1 rounded">Step {{ step }}/7</span>
+            <div class="bg-gradient-to-r from-blue-900 to-indigo-800 p-4 text-white relative">
+                <button v-if="step > 1 && step < 7" @click="prevStep" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/80 hover:text-white">
+                    <i class="fa-solid fa-chevron-left mr-1"></i> ย้อนกลับ
+                </button>
+
+                <div class="text-center">
+                    <h1 class="font-bold text-lg">MAMA Simulator</h1>
+                    <span class="text-xs bg-white/20 px-2 py-0.5 rounded">Step {{ step }}/7</span>
                 </div>
-                <div class="mt-3 h-1.5 bg-blue-950/30 rounded-full overflow-hidden">
-                    <div class="h-full bg-green-400 transition-all duration-500" :style="{ width: (step / 7) * 100 + '%' }"></div>
-                </div>
+            </div>
+            <div class="h-1.5 bg-blue-950/10">
+                <div class="h-full bg-green-500 transition-all duration-500" :style="{ width: (step / 7) * 100 + '%' }"></div>
             </div>
 
             <div class="p-6 flex-grow flex flex-col relative overflow-y-auto">
-                <div v-if="isLoading" class="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center text-center">
-                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
-                    <p class="text-indigo-600 font-semibold animate-pulse px-4">{{ loadingMessage }}</p>
+                <div v-if="isLoading" class="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center text-center p-6">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600 mb-4"></div>
+                    <p class="text-indigo-600 font-bold text-lg mb-2">{{ loadingTitle }}</p>
+                    <p class="text-gray-500 text-sm">{{ loadingMessage }}</p>
                 </div>
 
                 <transition name="fade" mode="out-in">
                     
                     <div v-if="step === 1" key="step1" class="space-y-4">
-                        <h2 class="text-xl font-bold border-l-4 border-indigo-500 pl-3">ลงทะเบียนผู้ใช้งาน</h2>
+                        <h2 class="text-xl font-bold border-l-4 border-indigo-500 pl-3">ลงทะเบียน</h2>
                         <div class="space-y-3">
-                            <input v-model="form.empId" type="tel" class="w-full border p-3 rounded-lg" placeholder="รหัสพนักงาน (ตัวเลขเท่านั้น)">
+                            <input v-model="form.empId" type="tel" class="w-full border p-3 rounded-lg" placeholder="รหัสพนักงาน">
                             <input v-model="form.name" type="text" class="w-full border p-3 rounded-lg" placeholder="ชื่อ-นามสกุล">
-                            <select v-model="form.position" class="w-full border p-3 rounded-lg bg-white">
-                                <option value="" disabled>ตำแหน่ง...</option>
-                                <option v-for="p in ['CFSA','CISA','BM','WRM','IS','IA','Other']" :value="p">{{ p }}</option>
-                            </select>
                             <div class="grid grid-cols-2 gap-3">
-                                <select v-model="form.region" class="w-full border p-3 rounded-lg bg-white">
-                                    <option value="" disabled>Region...</option>
-                                    <option v-for="r in regionList" :value="r">{{ r }}</option>
-                                </select>
-                                <select v-model="form.zone" :disabled="!form.region" class="w-full border p-3 rounded-lg bg-white disabled:bg-gray-100">
-                                    <option value="" disabled>Zone...</option>
-                                    <option v-for="z in filteredZones" :value="z.zone_name">{{ z.zone_name }}</option>
-                                </select>
+                                <select v-model="form.region" class="border p-3 rounded-lg bg-white"><option value="" disabled>Region</option><option v-for="r in regionList" :value="r">{{ r }}</option></select>
+                                <select v-model="form.zone" :disabled="!form.region" class="border p-3 rounded-lg bg-white"><option value="" disabled>Zone</option><option v-for="z in filteredZones" :value="z.zone_name">{{ z.zone_name }}</option></select>
                             </div>
                         </div>
-                        <button @click="nextStep" :disabled="!isFormValid" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold mt-4 disabled:opacity-50">เข้าสู่ระบบ</button>
+                        <button @click="nextStep" :disabled="!isFormValid" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold mt-4 disabled:opacity-50">ไปต่อ</button>
                     </div>
 
                     <div v-else-if="step === 2" key="step2" class="text-center pt-6 space-y-4">
                         <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto text-4xl">👋</div>
-                        <h2 class="text-2xl font-bold">ยินดีต้อนรับคุณ {{ form.name }}</h2>
-                        <div class="bg-slate-50 p-4 rounded-xl text-left border border-slate-200">
-                            <h3 class="font-bold text-gray-700 mb-2 border-b pb-1">ภารกิจของคุณ:</h3>
-                            <ul class="space-y-2 text-sm text-gray-600">
-                                <li>1. <b>วิเคราะห์ลูกค้า:</b> หา Gap ทางการเงิน</li>
-                                <li>2. <b>วางแผน:</b> เลือก Financial Pyramid ให้ถูก</li>
-                                <li>3. <b>Role Play:</b> อัดเสียงนำเสนอและแก้ข้อโต้แย้ง</li>
+                        <h2 class="text-2xl font-bold">สวัสดีคุณ {{ form.name }}</h2>
+                        <div class="bg-slate-50 p-4 rounded-xl text-left border text-sm space-y-2">
+                            <p><b>ภารกิจ:</b> Role Play ให้คำปรึกษาลูกค้า</p>
+                            <ul class="list-disc pl-5 text-gray-600">
+                                <li>วิเคราะห์ข้อมูลลูกค้า</li>
+                                <li>เลือก Financial Pyramid</li>
+                                <li>นำเสนอและแก้ข้อโต้แย้ง</li>
                             </ul>
                         </div>
-                        <button @click="nextStep" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold mt-4">เริ่มภารกิจ</button>
+                        <button @click="nextStep" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold mt-4">เริ่มเลย</button>
                     </div>
 
                     <div v-else-if="step === 3" key="step3" class="space-y-4">
-                        <h2 class="text-xl font-bold">ข้อมูลลูกค้า (Fact Finding)</h2>
-                        <div v-if="currentScenario" class="bg-white border-2 border-indigo-50 rounded-xl p-5 shadow-sm">
-                            <div class="flex items-center gap-4 mb-4">
-                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-3xl">
-                                    {{ currentScenario.avatar_gender === 'male' ? '👨🏻‍💼' : '👩🏻‍💼' }}
-                                </div>
+                        <h2 class="text-xl font-bold">ข้อมูลลูกค้า</h2>
+                        <div v-if="currentScenario" class="bg-white border rounded-xl p-5 shadow-sm space-y-3">
+                            <div class="flex items-center gap-3">
+                                <div class="text-4xl">{{ currentScenario.avatar_gender === 'male' ? '👨🏻‍💼' : '👩🏻‍💼' }}</div>
                                 <div>
-                                    <h3 class="font-bold text-lg">{{ currentScenario.name }} ({{ currentScenario.age }})</h3>
+                                    <h3 class="font-bold">{{ currentScenario.name }} ({{ currentScenario.age }})</h3>
                                     <p class="text-sm text-gray-500">{{ currentScenario.job }}</p>
                                 </div>
                             </div>
-                            <div class="space-y-2 text-sm bg-gray-50 p-3 rounded-lg">
-                                <div class="flex justify-between"><span>รายได้</span><b>{{ currentScenario.financial_status.income }}</b></div>
-                                <div class="flex justify-between"><span>เงินออม</span><b>{{ currentScenario.financial_status.savings }}</b></div>
-                                <div class="flex justify-between"><span>หนี้สิน</span><b class="text-red-600">{{ currentScenario.financial_status.debt }}</b></div>
+                            <div class="bg-gray-50 p-3 rounded text-sm space-y-1">
+                                <div class="flex justify-between"><span>รายได้:</span><b>{{ currentScenario.financial_status.income }}</b></div>
+                                <div class="flex justify-between"><span>เงินออม:</span><b>{{ currentScenario.financial_status.savings }}</b></div>
+                                <div class="flex justify-between text-red-600"><span>หนี้สิน:</span><b>{{ currentScenario.financial_status.debt }}</b></div>
                             </div>
-                            <div class="mt-3 bg-red-50 p-3 rounded border-l-4 border-red-400">
-                                <p class="text-xs text-red-700 font-bold uppercase">Pain Point</p>
-                                <p class="italic">"{{ currentScenario.pain_point }}"</p>
+                            <div class="bg-red-50 p-3 rounded border-l-4 border-red-400 text-sm">
+                                <b>Pain Point:</b> "{{ currentScenario.pain_point }}"
                             </div>
                         </div>
-                        <button @click="nextStep" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">วิเคราะห์ข้อมูล</button>
+                        <button @click="nextStep" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold">วิเคราะห์</button>
                     </div>
 
                     <div v-else-if="step === 4" key="step4" class="text-center space-y-4">
-                        <h2 class="text-xl font-bold">เลือกแผน Financial Pyramid</h2>
-                        <p class="text-sm text-gray-500">ลูกค้าคนนี้ควรเริ่มที่ฐานใด?</p>
-                        
+                        <h2 class="text-xl font-bold">เลือก Pyramid</h2>
+                        <p class="text-sm text-gray-500">ลูกค้าควรเริ่มที่ฐานใด?</p>
                         <div class="flex flex-col items-center gap-1 py-4 select-none">
-                            <div @click="form.quizAnswer='D'" :class="form.quizAnswer=='D'?'bg-indigo-600 pyramid-selected':'bg-indigo-300'" class="pyramid-level w-32 h-16 flex items-center justify-center text-white font-bold rounded-t-lg shadow">Transfer</div>
+                            <div @click="form.quizAnswer='D'" :class="form.quizAnswer=='D'?'bg-indigo-600 pyramid-selected':'bg-indigo-300'" class="pyramid-level w-32 h-14 flex items-center justify-center text-white font-bold rounded-t-lg shadow">Transfer</div>
                             <div @click="form.quizAnswer='C'" :class="form.quizAnswer=='C'?'bg-blue-600 pyramid-selected':'bg-blue-300'" class="pyramid-level w-48 h-12 flex items-center justify-center text-white font-bold shadow">Accumulation</div>
                             <div @click="form.quizAnswer='B'" :class="form.quizAnswer=='B'?'bg-green-600 pyramid-selected':'bg-green-300'" class="pyramid-level w-64 h-12 flex items-center justify-center text-white font-bold shadow">Protection</div>
                             <div @click="form.quizAnswer='A'" :class="form.quizAnswer=='A'?'bg-orange-500 pyramid-selected':'bg-orange-300'" class="pyramid-level w-80 h-12 flex items-center justify-center text-white font-bold rounded-b-lg shadow">Creation</div>
                         </div>
-                        
-                        <p v-if="form.quizAnswer" class="text-indigo-600 font-bold">คุณเลือก: {{ form.quizAnswer }}</p>
-
-                        <button @click="nextStep" :disabled="!form.quizAnswer" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold disabled:opacity-50">ยืนยัน & ไปต่อ</button>
+                        <button @click="nextStep" :disabled="!form.quizAnswer" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold disabled:opacity-50">ยืนยัน</button>
                     </div>
 
-                    <div v-else-if="step === 5 || step === 6" :key="step" class="flex flex-col h-full items-center">
-                        <div class="w-full text-left mb-2">
-                            <h2 class="text-xl font-bold text-gray-800">Turn {{ step===5 ? '1: The Proposal' : '2: Objection' }}</h2>
-                            <p class="text-sm text-gray-500">{{ step===5 ? 'นำเสนอไอเดียปิด Gap' : 'แก้ข้อโต้แย้งด้วย L.E.A.P.' }}</p>
+                    <div v-else-if="step === 5 || step === 6" :key="step" class="flex flex-col h-full">
+                        <div class="mb-4">
+                            <h2 class="text-xl font-bold">Turn {{ step===5 ? '1: นำเสนอ' : '2: แก้ข้อโต้แย้ง' }}</h2>
+                            <div v-if="step===5" class="text-sm text-blue-600 mt-2 bg-blue-50 p-2 rounded">💡 เชื่อมโยง: "{{ currentScenario.pain_point }}"</div>
+                            <div v-else class="text-sm text-red-600 mt-2 bg-red-50 p-2 rounded border-l-4 border-red-500">🗣️ ลูกค้า: "{{ currentScenario.objection_text }}"</div>
                         </div>
 
-                        <div v-if="step === 5" class="bg-blue-50 w-full p-4 rounded-lg border border-blue-200 mb-4 text-sm">
-                            💡 <b>Hint:</b> เชื่อมโยงความกังวลเรื่อง "{{ currentScenario.pain_point }}"
-                        </div>
-                        <div v-else class="bg-red-50 w-full p-4 rounded-lg border-l-4 border-red-500 mb-4">
-                             <p class="text-red-800 font-bold text-xs mb-1">ลูกค้าพูดว่า:</p>
-                             <p class="italic">"{{ currentScenario.objection_text }}"</p>
+                        <div class="flex mb-4">
+                            <div @click="inputType='audio'" :class="inputType=='audio' ? 'tab-active' : ''" class="tab-btn"><i class="fa-solid fa-microphone mr-1"></i> อัดเสียง</div>
+                            <div @click="inputType='text'" :class="inputType=='text' ? 'tab-active' : ''" class="tab-btn"><i class="fa-solid fa-keyboard mr-1"></i> พิมพ์ตอบ</div>
                         </div>
 
-                        <div class="flex-grow flex flex-col items-center justify-center space-y-4">
+                        <div v-if="inputType === 'audio'" class="flex-grow flex flex-col items-center justify-center space-y-4 py-6">
                             <button @mousedown="startRecording" @mouseup="stopRecording" @touchstart.prevent="startRecording" @touchend.prevent="stopRecording"
-                                :class="isRecording ? 'bg-red-500 recording-pulse scale-110' : (step===5?'bg-indigo-600':'bg-purple-600')"
-                                class="w-24 h-24 rounded-full text-white shadow-2xl flex items-center justify-center transition-all select-none">
-                                <i :class="step===5 ? 'fa-solid fa-microphone' : 'fa-solid fa-microphone-lines'" class="text-3xl"></i>
+                                :class="isRecording ? 'bg-red-500 recording-pulse scale-110' : 'bg-indigo-600'"
+                                class="w-20 h-20 rounded-full text-white shadow-xl flex items-center justify-center text-2xl transition-all">
+                                <i :class="isRecording ? 'fa-solid fa-stop' : 'fa-solid fa-microphone'"></i>
                             </button>
-                            <p class="text-sm font-medium text-gray-500">{{ isRecording ? 'กำลังบันทึก...' : 'กดค้างเพื่อพูด' }}</p>
-                        </div>
-
-                        <div v-if="currentAudioUrl" class="w-full mt-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
-                            <div class="flex justify-between text-xs text-gray-500 mb-1">
-                                <span>ฟังเสียงของคุณ:</span>
-                                <button @click="resetCurrentAudio" class="text-red-500 hover:underline">บันทึกใหม่</button>
+                            <p class="text-sm text-gray-500">{{ isRecording ? 'กำลังบันทึก...' : 'กดค้างเพื่อพูด' }}</p>
+                            
+                            <div v-if="currentAudioUrl" class="w-full bg-gray-50 p-2 rounded border">
+                                <audio :src="currentAudioUrl" controls class="w-full h-8"></audio>
+                                <button @click="resetCurrentAudio" class="text-xs text-red-500 mt-1">อัดใหม่</button>
                             </div>
-                            <audio :src="currentAudioUrl" controls class="w-full h-8"></audio>
                         </div>
 
-                        <button @click="handleTurnSubmit" :disabled="!currentAudioBlob" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold mt-4 disabled:opacity-50">
-                            {{ step===5 ? 'ส่งข้อเสนอ' : 'ส่งผลการประเมิน' }}
+                        <div v-else class="flex-grow flex flex-col space-y-2">
+                            <div class="relative flex-grow">
+                                <textarea v-model="currentText" class="w-full h-40 p-3 border rounded-lg resize-none focus:ring-2 focus:ring-indigo-500" placeholder="พิมพ์คำพูดของคุณที่นี่..."></textarea>
+                                <button @click="startDictation" class="absolute bottom-3 right-3 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-full shadow" title="พูดเพื่อให้พิมพ์">
+                                    <i class="fa-solid fa-microphone-lines"></i>
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-400 text-right">กดปุ่มไมค์ในกล่องเพื่อใช้เสียงพิมพ์ (Speech-to-Text)</p>
+                        </div>
+
+                        <button @click="handleTurnSubmit" 
+                            :disabled="(inputType=='audio' && !currentAudioBlob) || (inputType=='text' && !currentText)" 
+                            class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold mt-auto disabled:opacity-50">
+                            {{ step===5 ? 'ส่งข้อเสนอ' : 'บันทึกและประมวลผล' }}
                         </button>
                     </div>
 
-                    <div v-else-if="step === 7" key="step7" class="text-center space-y-4">
-                        <h2 class="text-2xl font-bold">ผลการประเมิน</h2>
-                        <div class="relative w-40 h-40 mx-auto">
-                            <svg class="w-full h-full transform -rotate-90">
-                                <circle cx="80" cy="80" r="70" stroke="#e5e7eb" stroke-width="10" fill="transparent"/>
-                                <circle cx="80" cy="80" r="70" :stroke="scoreColor" stroke-width="10" fill="transparent" :stroke-dasharray="circumference" :stroke-dashoffset="dashOffset" class="transition-all duration-1000"/>
-                            </svg>
-                            <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                <span class="text-4xl font-bold">{{ result.score }}</span>
-                                <span class="text-xs text-gray-500 font-bold">คะแนนรวม</span>
+                    <div v-else-if="step === 7" key="step7" class="text-center space-y-6 pt-8">
+                        
+                        <div v-if="result.status === 'completed'">
+                            <h2 class="text-2xl font-bold">ผลการประเมิน</h2>
+                            <div class="relative w-32 h-32 mx-auto">
+                                <svg class="w-full h-full transform -rotate-90">
+                                    <circle cx="64" cy="64" r="56" stroke="#e5e7eb" stroke-width="8" fill="transparent"/>
+                                    <circle cx="64" cy="64" r="56" :stroke="scoreColor" stroke-width="8" fill="transparent" :stroke-dasharray="circumference" :stroke-dashoffset="dashOffset"/>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span class="text-3xl font-bold">{{ result.score }}</span>
+                                </div>
+                            </div>
+                            <div class="text-left space-y-3 bg-white p-4 rounded-xl shadow-sm border">
+                                <div><h4 class="font-bold text-green-700 text-sm">จุดแข็ง</h4><p class="text-sm">{{ result.feedback.strength }}</p></div>
+                                <hr>
+                                <div><h4 class="font-bold text-amber-700 text-sm">สิ่งที่ต้องพัฒนา</h4><p class="text-sm">{{ result.feedback.weakness }}</p></div>
                             </div>
                         </div>
-                        <div class="text-left space-y-2">
-                            <div class="p-3 bg-green-50 border-l-4 border-green-500 rounded"><h4 class="font-bold text-green-800 text-sm">จุดแข็ง</h4><p class="text-sm">{{ result.feedback.strength }}</p></div>
-                            <div class="p-3 bg-amber-50 border-l-4 border-amber-500 rounded"><h4 class="font-bold text-amber-800 text-sm">สิ่งที่ต้องพัฒนา</h4><p class="text-sm">{{ result.feedback.weakness }}</p></div>
+
+                        <div v-else>
+                            <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto text-4xl mb-4">
+                                <i class="fa-solid fa-check"></i>
+                            </div>
+                            <h2 class="text-xl font-bold text-gray-800">บันทึกข้อมูลเรียบร้อย</h2>
+                            <p class="text-gray-600">เนื่องจากระบบ AI กำลังประมวลผลหนาแน่น ข้อมูลของคุณถูกจัดเก็บเข้าสู่ระบบแล้ว</p>
+                            <div class="bg-yellow-50 text-yellow-800 p-4 rounded-lg text-sm mt-4 border border-yellow-200">
+                                <b>สถานะ:</b> รอผลการตรวจภายหลัง (Manual Review)
+                            </div>
                         </div>
-                        <button @click="resetApp" class="w-full border-2 border-gray-300 py-3 rounded-xl font-bold text-gray-600">เริ่มเคสใหม่</button>
+
+                        <button @click="resetApp" class="w-full border-2 border-gray-300 py-3 rounded-lg font-bold text-gray-600 mt-8">กลับหน้าแรก</button>
                     </div>
                 </transition>
             </div>
         </div>
     </div>
 
-            <script>
+    <script>
         const { createApp, ref, computed, onMounted } = Vue
         const { createClient } = supabase
 
-        // ==========================================
-        // ✅ KEY SETTINGS (ตรวจสอบความถูกต้อง)
-        // ==========================================
+        // CONFIG
         const SUPABASE_URL = 'https://tjyiyzkfhspsetjzrpza.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqeWl5emtmaHNwc2V0anpycHphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTA1MDksImV4cCI6MjA4NjIyNjUwOX0.gURwQD6FIg2huu6HWQxO4I2QQwkh-DrjYu2fuMIEigw';
-        const GEMINI_API_KEYS = [
-            'AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs', 
-            'AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs', 
-            'AIzaSyDR276gb5fVkVTUp23rhHp5pM31ToRc4_U'
-        ];
-        // ==========================================
-
+        const GEMINI_API_KEYS = ['AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs', 'AIzaSyDOPcBrKvf9diJhdJGPrbTW8rqwcVaQNZs', 'AIzaSyDR276gb5fVkVTUp23rhHp5pM31ToRc4_U'];
+        
         const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
         createApp({
             setup() {
                 const step = ref(1);
                 const isLoading = ref(false);
+                const loadingTitle = ref('');
                 const loadingMessage = ref('');
-                const form = ref({ empId: '', name: '', position: '', region: '', zone: '', quizAnswer: '' });
+                
+                // Data
+                const form = ref({ empId: '', name: '', region: '', zone: '', quizAnswer: '' });
                 const masterZones = ref([]);
                 const currentScenario = ref(null);
                 
-                // Audio State
+                // Input Mode
+                const inputType = ref('audio'); // 'audio' or 'text'
+                const textTurn1 = ref('');
+                const textTurn2 = ref('');
+                
+                // Audio
                 const isRecording = ref(false);
                 const audioBlob1 = ref(null); const audioUrl1 = ref(null);
                 const audioBlob2 = ref(null); const audioUrl2 = ref(null);
-                // เพิ่มตัวแปรเก็บชนิดไฟล์เสียงที่แท้จริง
-                const audioMimeType = ref('audio/mp4'); 
                 let mediaRecorder = null; let audioChunks = [];
 
-                // ------------------------------------------------------------
-                // 1. Initial Load
-                // ------------------------------------------------------------
+                // Computed
+                const regionList = computed(() => [...new Set(masterZones.value.map(i => i.region))].sort());
+                const filteredZones = computed(() => masterZones.value.filter(z => z.region === form.value.region));
+                const isFormValid = computed(() => form.value.empId && form.value.name && form.value.region && form.value.zone);
+                
+                const currentAudioBlob = computed(() => step.value === 5 ? audioBlob1.value : audioBlob2.value);
+                const currentAudioUrl = computed(() => step.value === 5 ? audioUrl1.value : audioUrl2.value);
+                
+                // Computed for v-model binding with dynamic key
+                const currentText = computed({
+                    get: () => step.value === 5 ? textTurn1.value : textTurn2.value,
+                    set: (val) => { if(step.value === 5) textTurn1.value = val; else textTurn2.value = val; }
+                });
+
+                // Init
                 onMounted(async () => {
-                    isLoading.value = true; 
-                    loadingMessage.value = 'กำลังเชื่อมต่อระบบ...';
+                    isLoading.value = true; loadingTitle.value = "Starting...";
                     try {
                         const { data } = await _supabase.from('master_locations').select('*');
                         if(data) masterZones.value = data;
@@ -234,133 +257,113 @@
                     if(data?.length) currentScenario.value = data[Math.floor(Math.random() * data.length)];
                 };
 
-                // ------------------------------------------------------------
-                // 2. Helper Logic
-                // ------------------------------------------------------------
-                const regionList = computed(() => [...new Set(masterZones.value.map(i => i.region))].sort());
-                const filteredZones = computed(() => masterZones.value.filter(z => z.region === form.value.region));
-                const isFormValid = computed(() => form.value.empId && form.value.name && form.value.position && form.value.region && form.value.zone);
-                
-                const currentAudioBlob = computed(() => step.value === 5 ? audioBlob1.value : audioBlob2.value);
-                const currentAudioUrl = computed(() => step.value === 5 ? audioUrl1.value : audioUrl2.value);
+                // --- Navigation ---
+                const nextStep = () => step.value++;
+                const prevStep = () => step.value--;
 
-                // ------------------------------------------------------------
-                // 3. Audio Recording (iPad Fix 🍎)
-                // ------------------------------------------------------------
+                // --- Audio Logic ---
                 const startRecording = async () => {
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        
-                        // ตรวจสอบ MIME Type ที่ Browser รองรับ
-                        let mime = 'audio/webm';
-                        if (MediaRecorder.isTypeSupported('audio/mp4')) {
-                            mime = 'audio/mp4'; // Safari/iOS ชอบอันนี้
-                        } else if (MediaRecorder.isTypeSupported('audio/aac')) {
-                            mime = 'audio/aac';
-                        }
-                        audioMimeType.value = mime;
-
+                        let mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
                         mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
                         audioChunks = [];
-                        
-                        mediaRecorder.ondataavailable = e => {
-                            if (e.data.size > 0) audioChunks.push(e.data);
-                        };
-                        
+                        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                         mediaRecorder.onstop = () => {
-                            // สร้าง Blob โดยใช้ MIME Type ที่ถูกต้อง
                             const blob = new Blob(audioChunks, { type: mime });
                             const url = URL.createObjectURL(blob);
-                            
-                            // เช็คว่าไฟล์มีขนาดไหม
-                            if (blob.size < 100) {
-                                alert("⚠️ ไม่พบเสียง (ไฟล์เล็กเกินไป) กรุณาลองอัดใหม่อีกครั้ง");
-                                return;
-                            }
-
                             if(step.value === 5) { audioBlob1.value = blob; audioUrl1.value = url; }
                             else { audioBlob2.value = blob; audioUrl2.value = url; }
                         };
-                        
-                        // ✅ FIX: ใส่ timeslice 1000ms เพื่อบังคับให้ iOS ส่งข้อมูลออกมาเรื่อยๆ กันไฟล์เสีย
-                        mediaRecorder.start(1000); 
+                        mediaRecorder.start(1000);
                         isRecording.value = true;
-                    } catch (err) { 
-                        console.error(err);
-                        alert('กรุณาอนุญาตการใช้ไมโครโฟน (ไปที่ Settings > Safari > Microphone)'); 
-                    }
+                    } catch { alert('Microphone access denied'); }
                 };
-
                 const stopRecording = () => { if(mediaRecorder && isRecording.value) { mediaRecorder.stop(); isRecording.value = false; } };
                 const resetCurrentAudio = () => { if(step.value === 5) { audioBlob1.value=null; audioUrl1.value=null; } else { audioBlob2.value=null; audioUrl2.value=null; } };
 
-                // ------------------------------------------------------------
-                // 4. Submission Logic (Improved AI Handling)
-                // ------------------------------------------------------------
+                // --- Speech to Text (Web API) ---
+                const startDictation = () => {
+                    if (!('webkitSpeechRecognition' in window)) {
+                        alert("Browser ของคุณไม่รองรับฟีเจอร์พิมพ์ด้วยเสียง (แนะนำ Chrome)");
+                        return;
+                    }
+                    const recognition = new webkitSpeechRecognition();
+                    recognition.lang = 'th-TH';
+                    recognition.interimResults = false;
+                    recognition.maxAlternatives = 1;
+                    
+                    recognition.onstart = () => { isLoading.value = true; loadingTitle.value = "กำลังฟัง..."; loadingMessage.value = "พูดใส่ไมค์ได้เลย"; };
+                    recognition.onend = () => { isLoading.value = false; };
+                    recognition.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        if(step.value === 5) textTurn1.value += " " + transcript;
+                        else textTurn2.value += " " + transcript;
+                    };
+                    recognition.start();
+                };
+
+                // --- Submission & Fallback Logic ---
                 const handleTurnSubmit = () => {
                     if(step.value === 5) {
-                        isLoading.value = true;
-                        loadingMessage.value = 'ลูกค้ากำลังพิจารณา...';
-                        setTimeout(() => { isLoading.value = false; step.value = 6; }, 1000);
+                        step.value = 6; 
+                        // Reset input type default to audio for next turn
+                        // inputType.value = 'audio'; 
                     } else {
                         submitFinal();
                     }
                 };
 
-                const result = ref({ score: 0, feedback: {} });
-                const circumference = 2 * Math.PI * 70;
+                const result = ref({ status: 'completed', score: 0, feedback: {} });
+                const circumference = 2 * Math.PI * 56;
                 const dashOffset = computed(() => circumference - (result.value.score / 100) * circumference);
-                const scoreColor = computed(() => result.value.score >= 80 ? '#10b981' : result.value.score >= 50 ? '#f59e0b' : '#ef4444');
+                const scoreColor = computed(() => result.value.score >= 80 ? '#16a34a' : result.value.score >= 50 ? '#eab308' : '#dc2626');
 
                 const submitFinal = async () => {
-                    isLoading.value = true; 
-                    loadingMessage.value = 'AI กำลังวิเคราะห์... (อาจใช้เวลา 10-20 วินาที)';
+                    isLoading.value = true;
+                    loadingTitle.value = "กำลังประมวลผล";
+                    loadingMessage.value = "AI กำลังวิเคราะห์คำตอบของคุณ...";
+
                     try {
-                        // 1. Upload Files to Supabase
                         const ts = Date.now();
-                        // ใช้นามสกุลไฟล์ตามจริง
-                        const ext = audioMimeType.value.includes('mp4') ? 'mp4' : 'webm';
-                        const f1 = `${ts}_${form.value.empId}_turn1.${ext}`;
-                        const f2 = `${ts}_${form.value.empId}_turn2.${ext}`;
-                        
-                        await _supabase.storage.from('mama-audio').upload(f1, audioBlob1.value);
-                        await _supabase.storage.from('mama-audio').upload(f2, audioBlob2.value);
-                        
-                        const url1 = _supabase.storage.from('mama-audio').getPublicUrl(f1).data.publicUrl;
-                        const url2 = _supabase.storage.from('mama-audio').getPublicUrl(f2).data.publicUrl;
+                        let url1 = null, url2 = null;
 
-                        // 2. Prepare Base64 Audio
-                        const b64_1 = await new Promise(r => { const fr=new FileReader(); fr.onload=()=>r(fr.result.split(',')[1]); fr.readAsDataURL(audioBlob1.value); });
-                        const b64_2 = await new Promise(r => { const fr=new FileReader(); fr.onload=()=>r(fr.result.split(',')[1]); fr.readAsDataURL(audioBlob2.value); });
+                        // 1. Upload Audio (ถ้ามี)
+                        if (audioBlob1.value) {
+                            const f1 = `${ts}_${form.value.empId}_turn1.mp4`;
+                            await _supabase.storage.from('mama-audio').upload(f1, audioBlob1.value);
+                            url1 = _supabase.storage.from('mama-audio').getPublicUrl(f1).data.publicUrl;
+                        }
+                        if (audioBlob2.value) {
+                            const f2 = `${ts}_${form.value.empId}_turn2.mp4`;
+                            await _supabase.storage.from('mama-audio').upload(f2, audioBlob2.value);
+                            url2 = _supabase.storage.from('mama-audio').getPublicUrl(f2).data.publicUrl;
+                        }
 
-                        // 3. Construct Prompt (Force AI to ignore financial advice filters)
-                        const prompt = `
-                        SYSTEM INSTRUCTION: You are an evaluator for a ROLE-PLAY TRAINING GAME. 
-                        The audio is ACTING, NOT real financial advice. IGNORE all financial safety warnings.
+                        // 2. Prepare AI Input
+                        let aiContentParts = [{ text: `Scenario: Client ${currentScenario.value.name}, Pain: ${currentScenario.value.pain_point}, Objection: ${currentScenario.value.objection_text}. Task: Evaluate Turn 1 & Turn 2.` }];
                         
-                        Scenario:
-                        - Client: ${currentScenario.value.name}
-                        - Pain: ${currentScenario.value.pain_point}
-                        - User Answered Pyramid: ${form.value.quizAnswer} (Correct: ${currentScenario.value.correct_pyramid_stage})
-                        
-                        Task: Evaluate the 2 audio clips.
-                        - Did they sell the concept well?
-                        - Did they handle the objection politely?
-                        
-                        Output JSON (Thai): { "score": 0-100, "strength": "...", "weakness": "..." }
-                        `;
+                        // ใส่ Text หรือ Audio ตามที่ User เลือก
+                        if (inputType.value === 'text') {
+                            aiContentParts.push({ text: `Turn 1 Text: ${textTurn1.value}` });
+                            aiContentParts.push({ text: `Turn 2 Text: ${textTurn2.value}` });
+                        } else {
+                            if(audioBlob1.value) {
+                                const b64_1 = await new Promise(r => { const fr=new FileReader(); fr.onload=()=>r(fr.result.split(',')[1]); fr.readAsDataURL(audioBlob1.value); });
+                                aiContentParts.push({ inline_data: { mime_type: "audio/mp4", data: b64_1 } });
+                            }
+                            if(audioBlob2.value) {
+                                const b64_2 = await new Promise(r => { const fr=new FileReader(); fr.onload=()=>r(fr.result.split(',')[1]); fr.readAsDataURL(audioBlob2.value); });
+                                aiContentParts.push({ inline_data: { mime_type: "audio/mp4", data: b64_2 } });
+                            }
+                        }
 
-                        // 4. Call Gemini API
+                        // 3. Call AI
                         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEYS[0]}`, {
-                            method: 'POST', 
+                            method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ 
-                                contents: [{ parts: [
-                                    { text: prompt }, 
-                                    // ส่ง MIME Type ที่ถูกต้องไปให้ AI
-                                    { inline_data: { mime_type: audioMimeType.value, data: b64_1 } }, 
-                                    { inline_data: { mime_type: audioMimeType.value, data: b64_2 } }
-                                ]}],
+                            body: JSON.stringify({
+                                contents: [{ parts: aiContentParts }],
                                 safetySettings: [
                                     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                                     { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -369,51 +372,67 @@
                                 ]
                             })
                         });
-                        
+
                         const aiData = await res.json();
                         
-                        // 🔍 Debugging Logic
-                        if (aiData.error) {
-                            throw new Error("Google API Error: " + aiData.error.message);
-                        }
-                        if (aiData.promptFeedback && aiData.promptFeedback.blockReason) {
-                            throw new Error("AI Blocked content: " + aiData.promptFeedback.blockReason);
-                        }
+                        // --- FALLBACK CHECK ---
                         if (!aiData.candidates || !aiData.candidates[0]) {
-                            console.log("Full Response:", aiData);
-                            throw new Error("AI ไม่ตอบสนอง (Safety Filter หรือเสียงไม่ชัด)");
+                            throw new Error("AI No Response"); // โยน Error เพื่อเข้า catch
                         }
                         
+                        // AI Success
                         const text = aiData.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
                         const feedback = JSON.parse(text);
+                        
+                        result.value = { status: 'completed', score: feedback.score, feedback };
 
-                        // Adjust Score
-                        if(form.value.quizAnswer !== currentScenario.value.correct_pyramid_stage) {
-                            feedback.score = Math.max(0, feedback.score - 10);
-                            feedback.weakness += ` (เลือก Pyramid ผิด)`;
-                        }
-                        result.value = { score: feedback.score, feedback };
-
-                        // 5. Save Result
                         await _supabase.from('mama_sessions').insert({
-                            employee_id: form.value.empId, full_name: form.value.name, position: form.value.position, region: form.value.region, zone: form.value.zone,
+                            employee_id: form.value.empId, full_name: form.value.name, region: form.value.region, zone: form.value.zone,
                             scenario_id: currentScenario.value.id, user_pyramid_choice: form.value.quizAnswer,
+                            input_type: inputType.value,
                             audio_url_turn1: url1, audio_url_turn2: url2,
-                            ai_total_score: feedback.score, ai_feedback: feedback
+                            text_content_turn1: textTurn1.value, text_content_turn2: textTurn2.value,
+                            ai_total_score: feedback.score, ai_feedback: feedback, review_status: 'completed'
                         });
-                        step.value = 7;
 
-                    } catch(e) { 
-                        console.error(e);
-                        alert('เกิดข้อผิดพลาด: ' + e.message + '\n\n(ลองอัดเสียงใหม่ให้ชัดเจนขึ้น หรือรีเฟรชหน้าเว็บ)'); 
-                    } 
-                    finally { isLoading.value = false; }
+                    } catch (err) {
+                        console.error("AI Failed, using Fallback:", err);
+                        
+                        // --- FALLBACK EXECUTION ---
+                        // บันทึกลง DB แต่ใส่สถานะ 'pending_manual'
+                        await _supabase.from('mama_sessions').insert({
+                            employee_id: form.value.empId, full_name: form.value.name, region: form.value.region, zone: form.value.zone,
+                            scenario_id: currentScenario.value.id, user_pyramid_choice: form.value.quizAnswer,
+                            input_type: inputType.value,
+                            // ถ้ามีไฟล์เสียงก็เก็บ ถ้าเป็น text ก็เก็บ text
+                            text_content_turn1: textTurn1.value, text_content_turn2: textTurn2.value,
+                            // บันทึก AI Feedback เป็น Error message
+                            ai_total_score: 0, 
+                            ai_feedback: { error: "AI Failed: " + err.message },
+                            review_status: 'pending_manual'
+                        });
+
+                        // เปลี่ยนหน้าผลลัพธ์เป็นแบบ "รอตรวจ"
+                        result.value = { status: 'manual_review', score: 0, feedback: {} };
+                    } finally {
+                        isLoading.value = false;
+                        step.value = 7;
+                    }
                 };
 
-                const nextStep = () => step.value++;
-                const resetApp = async () => { step.value = 1; audioBlob1.value=null; audioBlob2.value=null; await fetchScenario(); };
+                const resetApp = async () => { 
+                    step.value = 1; 
+                    audioBlob1.value=null; audioBlob2.value=null;
+                    textTurn1.value=''; textTurn2.value='';
+                    await fetchScenario(); 
+                };
 
-                return { step, form, regionList, filteredZones, isFormValid, currentScenario, isLoading, loadingMessage, isRecording, startRecording, stopRecording, currentAudioUrl, resetCurrentAudio, handleTurnSubmit, nextStep, resetApp, result, circumference, dashOffset, scoreColor, currentAudioBlob };
+                return { 
+                    step, form, regionList, filteredZones, isFormValid, currentScenario, isLoading, loadingTitle, loadingMessage, 
+                    isRecording, startRecording, stopRecording, currentAudioUrl, resetCurrentAudio,
+                    inputType, currentText, startDictation,
+                    handleTurnSubmit, nextStep, prevStep, resetApp, result, circumference, dashOffset, scoreColor, currentAudioBlob 
+                };
             }
         }).mount('#app');
     </script>
