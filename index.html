@@ -185,7 +185,7 @@
         const { createClient } = supabase
 
         // ==========================================
-        // ✅ KEY ถูกต้อง 100% พร้อมใช้งาน
+        // ✅ KEY (ไม่ต้องแก้แล้ว)
         // ==========================================
         const SUPABASE_URL = 'https://tjyiyzkfhspsetjzrpza.supabase.co'; 
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqeWl5emtmaHNwc2V0anpycHphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTA1MDksImV4cCI6MjA4NjIyNjUwOX0.gURwQD6FIg2huu6HWQxO4I2QQwkh-DrjYu2fuMIEigw';
@@ -273,6 +273,7 @@
                 const dashOffset = computed(() => circumference - (result.value.score / 100) * circumference);
                 const scoreColor = computed(() => result.value.score >= 80 ? '#10b981' : result.value.score >= 50 ? '#f59e0b' : '#ef4444');
 
+                // 🔴 FIX: ปลดล็อก AI Filter ที่นี่
                 const submitFinal = async () => {
                     isLoading.value = true; loadingMessage.value = 'AI กำลังวิเคราะห์ผลงาน...';
                     try {
@@ -285,19 +286,30 @@
                         const url1 = _supabase.storage.from('mama-audio').getPublicUrl(f1).data.publicUrl;
                         const url2 = _supabase.storage.from('mama-audio').getPublicUrl(f2).data.publicUrl;
 
-                        // 2. AI
+                        // 2. AI Call with Safety Settings
                         const b64_1 = await new Promise(r => { const fr=new FileReader(); fr.onload=()=>r(fr.result.split(',')[1]); fr.readAsDataURL(audioBlob1.value); });
                         const b64_2 = await new Promise(r => { const fr=new FileReader(); fr.onload=()=>r(fr.result.split(',')[1]); fr.readAsDataURL(audioBlob2.value); });
 
                         const prompt = `Role: Sales Trainer. Context: Bank Advisor Roleplay. Scenario: Client ${currentScenario.value.name}, Pain: ${currentScenario.value.pain_point}. Correct Pyramid: ${currentScenario.value.correct_pyramid_stage}. User Choice: ${form.value.quizAnswer}. Turn 2 Objection: ${currentScenario.value.objection_text}. Task: Analyze 2 audios. Did they address pain point? Did they handle objection? Output JSON: { "score": 0-100, "strength": "Thai text", "weakness": "Thai text" }`;
 
                         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEYS[0]}`, {
-                            method: 'POST', headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "audio/mp4", data: b64_1 } }, { inline_data: { mime_type: "audio/mp4", data: b64_2 } }] }] })
+                            method: 'POST', 
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ 
+                                contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "audio/mp4", data: b64_1 } }, { inline_data: { mime_type: "audio/mp4", data: b64_2 } }] }],
+                                // ✅ ปลดล็อกความปลอดภัย
+                                safetySettings: [
+                                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                                ]
+                            })
                         });
+                        
                         const aiData = await res.json();
-                        // 🛡️ ป้องกัน Error เวลา AI ไม่ตอบหรือตอบผิด format
-                        if (!aiData.candidates || !aiData.candidates[0]) throw new Error("AI Busy/Filtered. Try again.");
+                        if (!aiData.candidates || !aiData.candidates[0]) throw new Error("AI Busy/Filtered (Please try again)");
+                        
                         const text = aiData.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
                         const feedback = JSON.parse(text);
 
@@ -314,7 +326,7 @@
                         step.value = 7;
                     } catch(e) { 
                         console.error(e);
-                        alert('เกิดข้อผิดพลาดในการประมวลผล (ลองกดส่งใหม่อีกครั้ง): ' + e.message); 
+                        alert('เกิดข้อผิดพลาดในการประมวลผล: ' + e.message); 
                     } 
                     finally { isLoading.value = false; }
                 };
