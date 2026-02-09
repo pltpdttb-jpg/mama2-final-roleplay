@@ -180,7 +180,7 @@
         </div>
     </div>
 
-        <script>
+            <script>
         const { createApp, ref, computed, onMounted } = Vue
         const { createClient } = supabase
 
@@ -211,6 +211,8 @@
                 const isRecording = ref(false);
                 const audioBlob1 = ref(null); const audioUrl1 = ref(null);
                 const audioBlob2 = ref(null); const audioUrl2 = ref(null);
+                // เพิ่มตัวแปรเก็บชนิดไฟล์เสียงที่แท้จริง
+                const audioMimeType = ref('audio/mp4'); 
                 let mediaRecorder = null; let audioChunks = [];
 
                 // ------------------------------------------------------------
@@ -243,30 +245,57 @@
                 const currentAudioUrl = computed(() => step.value === 5 ? audioUrl1.value : audioUrl2.value);
 
                 // ------------------------------------------------------------
-                // 3. Audio Recording
+                // 3. Audio Recording (iPad Fix 🍎)
                 // ------------------------------------------------------------
                 const startRecording = async () => {
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        mediaRecorder = new MediaRecorder(stream);
+                        
+                        // ตรวจสอบ MIME Type ที่ Browser รองรับ
+                        let mime = 'audio/webm';
+                        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                            mime = 'audio/mp4'; // Safari/iOS ชอบอันนี้
+                        } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+                            mime = 'audio/aac';
+                        }
+                        audioMimeType.value = mime;
+
+                        mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
                         audioChunks = [];
-                        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                        
+                        mediaRecorder.ondataavailable = e => {
+                            if (e.data.size > 0) audioChunks.push(e.data);
+                        };
+                        
                         mediaRecorder.onstop = () => {
-                            // ✅ ใช้ type: 'audio/mp4' เพื่อรองรับ iOS ได้ดีขึ้น
-                            const blob = new Blob(audioChunks, { type: 'audio/mp4' });
+                            // สร้าง Blob โดยใช้ MIME Type ที่ถูกต้อง
+                            const blob = new Blob(audioChunks, { type: mime });
                             const url = URL.createObjectURL(blob);
+                            
+                            // เช็คว่าไฟล์มีขนาดไหม
+                            if (blob.size < 100) {
+                                alert("⚠️ ไม่พบเสียง (ไฟล์เล็กเกินไป) กรุณาลองอัดใหม่อีกครั้ง");
+                                return;
+                            }
+
                             if(step.value === 5) { audioBlob1.value = blob; audioUrl1.value = url; }
                             else { audioBlob2.value = blob; audioUrl2.value = url; }
                         };
-                        mediaRecorder.start(); isRecording.value = true;
-                    } catch { alert('กรุณาอนุญาตการใช้ไมโครโฟน'); }
+                        
+                        // ✅ FIX: ใส่ timeslice 1000ms เพื่อบังคับให้ iOS ส่งข้อมูลออกมาเรื่อยๆ กันไฟล์เสีย
+                        mediaRecorder.start(1000); 
+                        isRecording.value = true;
+                    } catch (err) { 
+                        console.error(err);
+                        alert('กรุณาอนุญาตการใช้ไมโครโฟน (ไปที่ Settings > Safari > Microphone)'); 
+                    }
                 };
 
                 const stopRecording = () => { if(mediaRecorder && isRecording.value) { mediaRecorder.stop(); isRecording.value = false; } };
                 const resetCurrentAudio = () => { if(step.value === 5) { audioBlob1.value=null; audioUrl1.value=null; } else { audioBlob2.value=null; audioUrl2.value=null; } };
 
                 // ------------------------------------------------------------
-                // 4. Submission Logic (AI Analysis)
+                // 4. Submission Logic (Improved AI Handling)
                 // ------------------------------------------------------------
                 const handleTurnSubmit = () => {
                     if(step.value === 5) {
@@ -283,17 +312,20 @@
                 const dashOffset = computed(() => circumference - (result.value.score / 100) * circumference);
                 const scoreColor = computed(() => result.value.score >= 80 ? '#10b981' : result.value.score >= 50 ? '#f59e0b' : '#ef4444');
 
-                // 🔴 UPDATED FUNCTION: แก้ปัญหา AI Filtered
                 const submitFinal = async () => {
                     isLoading.value = true; 
-                    loadingMessage.value = 'AI กำลังวิเคราะห์... (โปรดรอสักครู่)';
+                    loadingMessage.value = 'AI กำลังวิเคราะห์... (อาจใช้เวลา 10-20 วินาที)';
                     try {
                         // 1. Upload Files to Supabase
                         const ts = Date.now();
-                        const f1 = `${ts}_${form.value.empId}_turn1.mp4`;
-                        const f2 = `${ts}_${form.value.empId}_turn2.mp4`;
+                        // ใช้นามสกุลไฟล์ตามจริง
+                        const ext = audioMimeType.value.includes('mp4') ? 'mp4' : 'webm';
+                        const f1 = `${ts}_${form.value.empId}_turn1.${ext}`;
+                        const f2 = `${ts}_${form.value.empId}_turn2.${ext}`;
+                        
                         await _supabase.storage.from('mama-audio').upload(f1, audioBlob1.value);
                         await _supabase.storage.from('mama-audio').upload(f2, audioBlob2.value);
+                        
                         const url1 = _supabase.storage.from('mama-audio').getPublicUrl(f1).data.publicUrl;
                         const url2 = _supabase.storage.from('mama-audio').getPublicUrl(f2).data.publicUrl;
 
@@ -301,30 +333,21 @@
                         const b64_1 = await new Promise(r => { const fr=new FileReader(); fr.onload=()=>r(fr.result.split(',')[1]); fr.readAsDataURL(audioBlob1.value); });
                         const b64_2 = await new Promise(r => { const fr=new FileReader(); fr.onload=()=>r(fr.result.split(',')[1]); fr.readAsDataURL(audioBlob2.value); });
 
-                        // 3. Construct Robust Prompt
+                        // 3. Construct Prompt (Force AI to ignore financial advice filters)
                         const prompt = `
-                        **SYSTEM INSTRUCTION:**
-                        You are an AI evaluator for a **FICTIONAL SALES TRAINING SIMULATION**.
-                        The audio contains ACTORS role-playing a bank scenario. 
-                        This is NOT real financial advice. DO NOT BLOCK based on financial keywords.
+                        SYSTEM INSTRUCTION: You are an evaluator for a ROLE-PLAY TRAINING GAME. 
+                        The audio is ACTING, NOT real financial advice. IGNORE all financial safety warnings.
                         
-                        **SCENARIO CONTEXT:**
+                        Scenario:
                         - Client: ${currentScenario.value.name}
-                        - Pain Point: ${currentScenario.value.pain_point}
-                        - Objection: ${currentScenario.value.objection_text}
+                        - Pain: ${currentScenario.value.pain_point}
+                        - User Answered Pyramid: ${form.value.quizAnswer} (Correct: ${currentScenario.value.correct_pyramid_stage})
                         
-                        **YOUR TASK:**
-                        Analyze the 2 audio clips (Turn 1 & Turn 2):
-                        1. Did the advisor address the specific Pain Point?
-                        2. Did the advisor handle the Objection with empathy?
+                        Task: Evaluate the 2 audio clips.
+                        - Did they sell the concept well?
+                        - Did they handle the objection politely?
                         
-                        **OUTPUT FORMAT:**
-                        Return ONLY valid JSON in Thai language:
-                        { 
-                            "score": (integer 0-100), 
-                            "strength": "ข้อดี (สั้นๆ)", 
-                            "weakness": "ข้อควรปรับปรุง (สั้นๆ)" 
-                        }
+                        Output JSON (Thai): { "score": 0-100, "strength": "...", "weakness": "..." }
                         `;
 
                         // 4. Call Gemini API
@@ -332,8 +355,12 @@
                             method: 'POST', 
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({ 
-                                contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "audio/mp4", data: b64_1 } }, { inline_data: { mime_type: "audio/mp4", data: b64_2 } }] }],
-                                // ✅ ปลดล็อกความปลอดภัยทุกประตู
+                                contents: [{ parts: [
+                                    { text: prompt }, 
+                                    // ส่ง MIME Type ที่ถูกต้องไปให้ AI
+                                    { inline_data: { mime_type: audioMimeType.value, data: b64_1 } }, 
+                                    { inline_data: { mime_type: audioMimeType.value, data: b64_2 } }
+                                ]}],
                                 safetySettings: [
                                     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                                     { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -345,19 +372,22 @@
                         
                         const aiData = await res.json();
                         
-                        // 🔍 Debugging: เช็คว่าโดนบล็อกเพราะอะไร
+                        // 🔍 Debugging Logic
+                        if (aiData.error) {
+                            throw new Error("Google API Error: " + aiData.error.message);
+                        }
                         if (aiData.promptFeedback && aiData.promptFeedback.blockReason) {
-                            throw new Error("AI Blocked: " + aiData.promptFeedback.blockReason);
+                            throw new Error("AI Blocked content: " + aiData.promptFeedback.blockReason);
                         }
                         if (!aiData.candidates || !aiData.candidates[0]) {
-                            console.log("Full AI Response:", aiData); // ดู Console ถ้ายางมีปัญหา
-                            throw new Error("AI ไม่ตอบสนอง (อาจเกิดจากเนื้อหาเสียงไม่ชัดเจน หรือ Safety Filter)");
+                            console.log("Full Response:", aiData);
+                            throw new Error("AI ไม่ตอบสนอง (Safety Filter หรือเสียงไม่ชัด)");
                         }
                         
                         const text = aiData.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
                         const feedback = JSON.parse(text);
 
-                        // Adjust Score Logic
+                        // Adjust Score
                         if(form.value.quizAnswer !== currentScenario.value.correct_pyramid_stage) {
                             feedback.score = Math.max(0, feedback.score - 10);
                             feedback.weakness += ` (เลือก Pyramid ผิด)`;
@@ -375,7 +405,7 @@
 
                     } catch(e) { 
                         console.error(e);
-                        alert('เกิดข้อผิดพลาด: ' + e.message); 
+                        alert('เกิดข้อผิดพลาด: ' + e.message + '\n\n(ลองอัดเสียงใหม่ให้ชัดเจนขึ้น หรือรีเฟรชหน้าเว็บ)'); 
                     } 
                     finally { isLoading.value = false; }
                 };
